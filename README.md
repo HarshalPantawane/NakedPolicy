@@ -1,6 +1,6 @@
 # NakedPolicy
 ### Contributors
-- Karan Tomar (TL)
+- Karan Tomar (Team Leader)
 - Swinal Waghmare
 - Harshal Pantawane
 - Anirudh Trivedi (member)
