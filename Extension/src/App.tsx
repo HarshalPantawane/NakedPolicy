@@ -40,39 +40,45 @@ function App() {
     setError(null);
 
     try {
-      // In a real extension, we would:
-      // 1. Extract policy text from the current page
-      // 2. Or fetch from common policy URLs
+      // Get current URL from the tab
+      let targetUrl = currentUrl;
       
-      // For demo, we'll use a sample text
-      const samplePolicyText = `
-Privacy Policy
+      if (chrome?.tabs?.query) {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs[0]?.url) {
+          try {
+            const url = new URL(tabs[0].url);
+            targetUrl = url.hostname;
+          } catch (e) {
+            console.error('Error parsing URL:', e);
+          }
+        }
+      }
 
-We collect your personal information including name, email, phone number, and location data.
-Your data may be shared with third-party advertisers and marketing partners.
-We use cookies and tracking technologies to monitor your activity across websites.
-Your data is stored indefinitely, even after account deletion.
-We may sell your information if our company is acquired.
-You have limited rights to access or delete your data.
-We are not responsible for data breaches or unauthorized access.
-      `.trim();
+      console.log(`Analyzing: ${targetUrl}`);
 
-      const response = await fetch('http://localhost:5000/summarize', {
+      // Call the new fetch-and-summarize endpoint
+      const response = await fetch('http://localhost:5000/fetch-and-summarize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: samplePolicyText })
+        body: JSON.stringify({ url: targetUrl })
       });
 
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `API Error: ${response.status}`);
       }
 
       const data = await response.json();
-      const summaryText = data.summary;
+      console.log('Response:', data);
 
-      // Parse the summary
+      // Parse the 50-word summary
+      const summaryText = data.short_summary;
+      const summaryId = data.id;
+
+      // Extract sections from the short summary
       const sections: SummaryData = {
         critical: [],
         concerning: [],
@@ -91,10 +97,21 @@ We are not responsible for data breaches or unauthorized access.
           sections.good.push(line.replace('✅', '').trim());
         } else if (line.includes('ℹ️')) {
           sections.standard.push(line.replace('ℹ️', '').trim());
+        } else if (line.trim()) {
+          // If no emoji, add to concerning by default
+          sections.concerning.push(line.trim());
         }
       });
 
       setSummary(sections);
+
+      // Store summary ID for "View Full" button
+      if (chrome?.storage?.local) {
+        chrome.storage.local.set({ 
+          lastSummaryId: summaryId,
+          lastUrl: targetUrl 
+        });
+      }
 
       // Determine risk level
       if (sections.critical.length > 2) {
@@ -110,6 +127,17 @@ We are not responsible for data breaches or unauthorized access.
       console.error('Error:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const openFullReport = () => {
+    // Get the summary ID from storage and open frontend
+    if (chrome?.storage?.local) {
+      chrome.storage.local.get(['lastSummaryId'], (result) => {
+        if (result.lastSummaryId) {
+          window.open(`http://localhost:5173/?summary=${result.lastSummaryId}`, '_blank');
+        }
+      });
     }
   };
 
@@ -208,7 +236,7 @@ We are not responsible for data breaches or unauthorized access.
                 variant="primary" 
                 icon={<ChevronRight className="w-4 h-4" />} 
                 className="w-full justify-center text-base py-3"
-                onClick={() => window.open(`http://localhost:5173`, '_blank')}
+                onClick={openFullReport}
               >
                 View Full Report
               </Button>

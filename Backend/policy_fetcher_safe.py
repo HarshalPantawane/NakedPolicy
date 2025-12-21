@@ -218,8 +218,59 @@ def fetch_playwright(url: str) -> str | None:
             browser.close()
 
 
+
 # =========================================================
-# MAIN
+# API FUNCTION (for app.py integration)
+# =========================================================
+
+def fetch_policy_for_url(site: str) -> dict:
+    """
+    Fetch policies for a website and return text (for API use)
+    
+    Args:
+        site: Website URL (e.g., "github.com" or "https://github.com")
+    
+    Returns:
+        dict: {
+            'url': 'github.com',
+            'policies': {
+                'privacy': 'policy text...',
+                'terms': 'policy text...',
+                'cookies': 'policy text...'
+            },
+            'found_types': ['privacy', 'terms']
+        }
+    """
+    if not site.startswith("http"):
+        site = "https://" + site
+
+    parsed = urlparse(site)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    
+    result = {
+        'url': parsed.netloc,
+        'policies': {},
+        'found_types': []
+    }
+
+    for policy_type, paths in COMMON_PATHS.items():
+        for path in paths:
+            url = urljoin(origin, path)
+            
+            text = fetch_static(url)
+            if not text:
+                text = fetch_playwright(url)
+
+            if text and contains_keywords(text, policy_type):
+                result['policies'][policy_type] = text
+                result['found_types'].append(policy_type)
+                break
+
+    return result
+
+
+# =========================================================
+# MAIN (CLI usage)
 # =========================================================
 
 def main(site: str):

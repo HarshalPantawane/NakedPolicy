@@ -1,20 +1,23 @@
 @echo off
 echo ========================================
-echo   Starting NakedPolicy Frontend
+echo Starting NakedPolicy Frontend Server
 echo ========================================
 echo.
 
-cd frontend
+cd /d "%~dp0Frontend\frontend"
 
-REM Check if node_modules exists
-if not exist "node_modules" (
-    echo Installing dependencies...
-    npm install
-    echo.
+echo Checking Node.js...
+node --version
+if %errorlevel% neq 0 (
+    echo ERROR: Node.js not found!
+    pause
+    exit /b 1
 )
 
-REM Start development server
-echo Starting frontend on http://localhost:5173
-echo Press Ctrl+C to stop the server
 echo.
+echo Starting Vite dev server on port 5173...
+echo.
+
 npm run dev
+
+pause

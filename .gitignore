@@ -7,10 +7,38 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
 dist
 dist-ssr
 *.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+
+# Environment variables and API keys
+.env
+.env.local
+.env.*.local
+
+# Backend - Database and Generated Content
+Backend/summaries_db.json
+Backend/policies/
+Backend/summaries/
+Backend/*.db
+Backend/*.sqlite
+
+# Sample/Test Data (uncomment if you want to ignore)
+# Sample Data/
 
 # Editor directories and files
 .vscode/*
@@ -26,3 +54,24 @@ dist-ssr
 # TypeScript build artifacts
 *.tsbuildinfo
 vite.config.d.ts
+
+# OS
+Thumbs.db
+
+# Old structure (deleted files - root level only)
+/frontend/
+/src/
+/public/
+/app.py
+/policy_fetcher_safe.py
+/requirements.txt
+/save-policies.py
+/test_summarize.py
+/index.html
+/package.json
+/package-lock.json
+/tsconfig.json
+/vite.config.ts
+/tailwind.config.js
+/QUICKSTART.md
+/SETUP.md

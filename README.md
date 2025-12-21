@@ -2,21 +2,18 @@
 
 > **AI-Powered Privacy Policy Analyzer** - Understand complex legal documents in plain English
 
-NakedPolicy uses advanced AI to transform lengthy privacy policies and terms of service into clear, categorized summaries. Available as both a web application and Chrome extension.
-
-![Status](https://img.shields.io/badge/status-active-success)
-![Python](https://img.shields.io/badge/python-3.8+-blue)
-![React](https://img.shields.io/badge/react-18.2-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![Status](https://img.shields.io/badge/status-active-success)](https://github.com)
+[![Python](https://img.shields.io/badge/python-3.8+-blue)](https://python.org)
+[![React](https://img.shields.io/badge/react-18.2-blue)](https://reactjs.org)
 
 ---
 
 ## ✨ Features
 
-- 🤖 **AI-Powered Analysis** - Uses Google Gemini to generate 1000-word summaries
+- 🤖 **AI-Powered Analysis** - Uses Google Gemini to generate summaries
 - 📊 **Risk Assessment** - Categorizes policies as Low, Medium, or High risk
-- 🎯 **Categorized Summaries** - Separates Critical Issues, Concerning Practices, Good Things, and Standard Items
-- 🌐 **Web Application** - Beautiful React interface for uploading and analyzing policies
+- 🎯 **Dual Summaries** - 50-word quick view + 1000-word detailed analysis
+- 🌐 **Web Application** - React interface for uploading and analyzing policies
 - 🔌 **Chrome Extension** - Quick analysis directly from your browser
 - 📥 **Auto-Fetch** - Automatically extract policies from any website
 
@@ -24,113 +21,249 @@ NakedPolicy uses advanced AI to transform lengthy privacy policies and terms of 
 
 ## 🚀 Quick Start
 
-### 1. Start the Backend
-
+### 1. Start Backend
 ```bash
 start-backend.bat
 ```
 
-### 2. Start the Frontend
-
+### 2. Start Frontend
 ```bash
 start-frontend.bat
 ```
 
-### 3. Open Browser
-
-Visit `http://localhost:5173` and start analyzing policies!
+### 3. Use the App
+- **Web:** Visit `http://localhost:5173`
+- **Extension:** Build with `npm run build`, load `dist/` in Chrome
 
 ---
 
-## 📖 Full Documentation
+## 📁 Project Structure
 
-For detailed setup instructions, troubleshooting, and usage examples, see [SETUP.md](./SETUP.md)
+```
+NakedPolicy/
+├── app.py                    # Flask backend API
+├── policy_fetcher_safe.py    # Policy fetching from websites
+├── summary_store.py          # Summary storage system
+├── requirements.txt          # Python dependencies
+├── summaries_db.json         # Stored summaries database
+│
+├── frontend/                 # React web application
+│   ├── src/
+│   │   └── App.jsx          # Main app with URL parameter support
+│   └── package.json
+│
+├── src/                      # Chrome extension
+│   ├── App.tsx              # Extension popup
+│   └── components/
+│
+├── public/
+│   └── manifest.json        # Extension manifest
+│
+├── start-backend.bat        # Easy backend startup
+└── start-frontend.bat       # Easy frontend startup
+```
+
+---
+
+## 🔧 Setup
+
+### Prerequisites
+- Python 3.8+
+- Node.js 16+
+- Chrome browser (for extension)
+
+### Installation
+
+1. **Clone repository**
+   ```bash
+   git clone <your-repo-url>
+   cd NakedPolicy
+   ```
+
+2. **Backend setup**
+   ```bash
+   pip install -r requirements.txt
+   playwright install chromium
+   ```
+
+3. **Frontend setup**
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+4. **Extension setup**
+   ```bash
+   npm install
+   npm run build
+   ```
+
+---
+
+## 📖 Usage
+
+### Web Application
+
+1. Start backend: `start-backend.bat`
+2. Start frontend: `start-frontend.bat`
+3. Open `http://localhost:5173`
+4. Upload a `.txt` policy file
+5. View AI-generated summary
+
+### Chrome Extension
+
+1. Build: `npm run build`
+2. Open `chrome://extensions/`
+3. Enable "Developer mode"
+4. Click "Load unpacked" → Select `dist/` folder
+5. Visit any website → Click extension icon
+6. Click "Analyze Privacy Policy"
+
+### API Endpoints
+
+```bash
+# Create demo summary (no API key needed)
+POST /demo-summary
+{
+  "url": "github.com"
+}
+
+# Fetch and analyze (requires API key)
+POST /fetch-and-summarize
+{
+  "url": "github.com"
+}
+
+# Get full summary
+GET /summary/<id>
+
+# Health check
+GET /health
+```
+
+---
+
+## 🎯 How It Works
+
+```
+User Action (Extension/Web)
+    ↓
+Backend fetches policy
+    ↓
+AI generates summaries:
+  - 50 words (quick view)
+  - 1000 words (detailed)
+    ↓
+Stores with unique ID
+    ↓
+Extension shows 50-word summary
+    ↓
+"View Full" opens frontend
+    ↓
+Frontend displays 1000-word analysis
+```
+
+---
+
+## 🔑 API Key Setup
+
+1. Get API key from [Google AI Studio](https://aistudio.google.com/apikey)
+2. Update `app.py` line 16:
+   ```python
+   api_key = "YOUR_API_KEY_HERE"
+   ```
+
+**Or** use demo mode (no API key needed):
+```bash
+curl -X POST http://localhost:5000/demo-summary \
+  -H "Content-Type: application/json" \
+  -d '{"url":"github.com"}'
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Backend won't start
+```bash
+pip install --upgrade google-genai flask flask-cors
+```
+
+### Frontend won't start
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+### Extension not working
+- Verify backend is running on port 5000
+- Check `chrome://extensions/` for errors
+- Rebuild: `npm run build`
+
+### API Quota Error
+- Use `/demo-summary` endpoint instead
+- Wait 1-2 minutes for quota reset
+- Check usage: https://ai.dev/usage
 
 ---
 
 ## 🛠️ Tech Stack
 
 **Backend:**
-- Python 3.8+
-- Flask
+- Python, Flask, Flask-CORS
 - Google Gemini AI
-- Playwright
+- Playwright (for web scraping)
 
 **Frontend:**
-- React 18
-- Vite
+- React 18, Vite
 - TailwindCSS
 - Lucide Icons
 
 **Extension:**
-- TypeScript
-- React
+- TypeScript, React
 - Chrome Extension Manifest V3
-
----
-
-## 📸 Screenshots
-
-### Web Application
-![Web App](https://via.placeholder.com/800x400?text=NakedPolicy+Web+App)
-
-### Chrome Extension
-![Extension](https://via.placeholder.com/400x600?text=Chrome+Extension)
-
----
-
-## 🎯 Use Cases
-
-- ✅ Quickly understand privacy policies before signing up
-- ✅ Compare policies between different services
-- ✅ Identify concerning data collection practices
-- ✅ Know your rights as a user
-- ✅ Make informed decisions about your data
 
 ---
 
 ## 📝 Example Output
 
-**Input:** 50-page privacy policy document
+**Input:** Privacy policy from github.com
 
-**Output:**
+**50-word Summary (Extension):**
 ```
-🚫 CRITICAL ISSUES
-- Your data can be sold if the company is acquired
-- No guarantee of data deletion after account closure
-
-⚠️ CONCERNING PRACTICES  
-- Tracks your location even when app is closed
-- Shares data with 100+ third-party partners
-
-✅ GOOD THINGS
-- You can request your data at any time
-- Encryption used for data in transit
-
-ℹ️ STANDARD STUFF
-- Must be 13+ to use the service
-- Cookies used for login sessions
+🚫 GitHub collects extensive personal data including browsing history and location.
+⚠️ Data shared with third-party advertisers.
+⚠️ Limited user control over data deletion.
 ```
+
+**1000-word Summary (Frontend):**
+- 🚫 **CRITICAL ISSUES** - Data selling, indefinite storage
+- ⚠️ **CONCERNING PRACTICES** - Third-party sharing, tracking
+- ✅ **GOOD THINGS** - Encryption, access rights
+- ℹ️ **STANDARD STUFF** - Age requirements, cookies
 
 ---
 
 ## 🤝 Contributing
 
-This is a portfolio project, but suggestions and feedback are welcome!
+This is a portfolio project. Feel free to fork and modify!
 
 ---
 
 ## 📄 License
 
-MIT License - feel free to use for educational purposes
+MIT License - Educational purposes
 
 ---
 
-## 👨‍💻 Author
+## 👨‍💻 Contributors
 
-Created as part of my portfolio to demonstrate full-stack development and AI integration skills.
+- Karan Tomar (Team Leader)
+- Swinal Waghmare (Member)
+- Harshal Pantawane (Member)
+- Anirudh Trivedi (Member)
 
 ---
 
 **Made with ❤️ and AI**
----
