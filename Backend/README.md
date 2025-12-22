@@ -8,11 +8,15 @@ This Flask-based API provides endpoints for analyzing and summarizing privacy po
 
 ## Project Structure
 
-```
 Backend/
 ├── api/                    # API routes and handlers
 │   ├── __init__.py
 │   └── routes.py          # Flask endpoints
+├── database/              # Database abstraction layer
+│   ├── __init__.py
+│   ├── db_interface.py    # Database interface
+│   ├── json_db.py         # JSON file storage
+│   └── dynamodb_adapter.py # DynamoDB storage
 ├── services/              # Business logic
 │   ├── __init__.py
 │   ├── summarizer.py      # AI summarization service
@@ -21,10 +25,9 @@ Backend/
 │   └── __init__.py
 ├── utils/                 # Utility functions
 │   └── __init__.py
-├── data/                  # Data storage
+├── data/                  # Data storage (JSON mode)
 │   ├── policies/         # Fetched policy documents
-│   ├── summaries/        # Generated summaries
-│   └── summaries_db.json # Summary database
+│   └── summaries/        # Generated summaries
 ├── tests/                 # Unit tests
 │   ├── __init__.py
 │   └── test_summarizer.py
@@ -32,8 +35,13 @@ Backend/
 │   ├── __init__.py
 │   └── config.py
 ├── app.py                 # Application entry point
+├── summaries_db.json      # Summary database (JSON mode)
+├── summary_store.py       # Legacy storage (deprecated)
 ├── requirements.txt       # Python dependencies
-└── .env.example          # Environment variables template
+├── .env.example          # Environment variables template
+├── CACHING.md            # Caching system documentation
+├── setup_dynamodb.py      # DynamoDB setup script
+└── migrate_to_dynamodb.py # Migration tool
 ```
 
 ## Setup
@@ -108,6 +116,80 @@ Summarize a policy document.
 }
 ```
 
+### POST /fetch-and-summarize
+
+Fetch and summarize a website's privacy policy (main endpoint for extension).
+
+**Request:**
+```json
+{
+  "url": "https://example.com"
+}
+```
+
+**Response (not cached):**
+```json
+{
+  "id": "abc-123-def",
+  "short_summary": "🚫 Website collects extensive data...",
+  "url": "example.com",
+  "policy_types": ["privacy", "terms"],
+  "status": "success",
+  "cached": false
+}
+```
+
+**Response (cached):**
+```json
+{
+  "id": "abc-123-def",
+  "short_summary": "🚫 Website collects extensive data...",
+  "url": "example.com",
+  "policy_types": ["privacy", "terms"],
+  "status": "success",
+  "cached": true,
+  "cached_at": "2025-12-21 12:34:56"
+}
+```
+
+### GET /summary/:id
+
+Get full summary by ID (for frontend display).
+
+**Response:**
+```json
+{
+  "id": "abc-123-def",
+  "url": "example.com",
+  "short_summary": "...",
+  "full_summary": "...",
+  "policy_types": ["privacy"],
+  "created_at": "2025-12-21 12:34:56"
+}
+```
+
+### GET /recent
+
+Get recent summaries.
+
+**Query Parameters:**
+- `limit` (optional): Number of summaries to return (default: 10)
+
+### GET /cache/stats
+
+Get cache statistics (useful for monitoring).
+
+**Response:**
+```json
+{
+  "total_summaries": 150,
+  "total_urls": 145,
+  "cache_enabled": true,
+  "cache_expiry_days": 30,
+  "db_type": "json"
+}
+```
+
 ### GET /health
 
 Health check endpoint.
@@ -115,7 +197,11 @@ Health check endpoint.
 **Response:**
 ```json
 {
-  "status": "ok"
+  "status": "healthy",
+  "service": "NakedPolicy API",
+  "version": "1.0.0",
+  "database": "json",
+  "cache_enabled": true
 }
 ```
 
@@ -123,9 +209,74 @@ Health check endpoint.
 
 Configuration is managed through `config/config.py` and environment variables:
 
-- `GEMINI_API_KEY`: Your Google Gemini API key
+### Basic Configuration
+- `PERPLEXITY_API_KEY`: Your Perplexity API key for AI summarization
 - `FLASK_ENV`: `development` or `production`
 - `PORT`: Server port (default: 5000)
+
+### Database & Caching Configuration
+
+The backend supports **URL-based caching** to save API tokens when multiple users request the same website.
+
+#### Database Options
+
+**Option 1: JSON Database (Default)**
+- Local file storage
+- No additional setup required
+- Good for development and single-server deployments
+
+```bash
+# .env
+DB_TYPE=json
+CACHE_ENABLED=true
+```
+
+**Option 2: DynamoDB (Recommended for Production)**
+- AWS cloud storage
+- Supports multiple servers
+- Highly scalable
+- Requires AWS account
+
+```bash
+# .env
+DB_TYPE=dynamodb
+DYNAMODB_TABLE_NAME=naked-policy-summaries
+DYNAMODB_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+CACHE_ENABLED=true
+```
+
+#### Setting Up DynamoDB
+
+1. **Create the table:**
+   ```bash
+   python setup_dynamodb.py
+   ```
+
+2. **Migrate from JSON (optional):**
+   ```bash
+   python migrate_to_dynamodb.py
+   ```
+
+3. **Update .env:**
+   ```bash
+   DB_TYPE=dynamodb
+   ```
+
+For detailed caching documentation, see [CACHING.md](CACHING.md).
+
+### How Caching Works
+
+1. **Without Cache**: Every request fetches and summarizes → Uses API tokens
+2. **With Cache**: First request summarizes, subsequent requests use cache → **Saves 90%+ tokens!**
+
+Example:
+```
+User A: google.com → Fetch + Summarize → Cache
+User B: google.com → Return from cache (instant!) ✨
+User C: google.com → Return from cache (instant!) ✨
+```
 
 ## Testing
 

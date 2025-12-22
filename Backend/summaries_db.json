@@ -64,19 +64,5 @@
     ],
     "timestamp": "2025-12-21T11:33:23.315597",
     "created_at": "2025-12-21 11:33:23"
-  },
-  "a05117f3-1739-4ded-b6d2-836e182f1cf3": {
-    "id": "a05117f3-1739-4ded-b6d2-836e182f1cf3",
-    "url": "github.com",
-    "short_summary": "🚫 GitHub collects extensive personal and usage data (account, content, device, cookies, payment) and may share with third parties, subprocessors, affiliates, and law enforcement when required.⚠️ Data is used for service, security, analytics, and AI training; you can access, correct, delete, or export data but some processing relies on consent or legitimate interests.",
-    "full_summary": "# What You Need to Know\n\n## 🚫 CRITICAL ISSUES (Deal Breakers)\n🚫 You must be 13 or older - kids under 13 get accounts deleted right away  \n🚫 GitHub can read your private repo code for security scans, support, or if they think it's breaking laws  \n🚫 By posting public code, you let everyone copy and use it forever through forks  \n\n## ⚠️ CONCERNING PRACTICES (Think Twice)\n⚠️ They get a permanent license to store, copy, and show your code to run their service  \n⚠️ GitHub staff can access your private repos without asking for security checks or legal reasons  \n⚠️ If you use AI tools like Copilot, your code might train their models unless you opt out  \n⚠️ No refunds if you cancel mid-payment, and they keep backups of your data for 90 days  \n⚠️ They can change terms anytime and suspend your account for any reason  \n\n## ✅ GOOD THINGS (Your Rights)\n✅ You own your code and can delete your account anytime  \n✅ Private repos are treated as confidential and protected like their own secrets  \n✅ You can ask for a copy of your data before they delete it after cancellation  \n✅ You control who sees your private repos and can add licenses to public ones  \n✅ They notify you 30 days before big changes like price hikes  \n\n## ℹ️ STANDARD STUFF (Normal for Most Services)\nℹ️ You need a real email and can't share logins or make bot accounts  \nℹ️ They use cookies and track usage to improve the site  \nℹ️ No phone support - only email and in-app help  \nℹ️ You pay taxes on fees, and late payments add interest  \nℹ️ They can end service if you break rules like spam or illegal stuff",
-    "policy_types": [
-      "privacy",
-      "terms",
-      "cookies",
-      "code_of_conduct"
-    ],
-    "timestamp": "2025-12-21T11:50:16.872439",
-    "created_at": "2025-12-21 11:50:16"
   }
 }

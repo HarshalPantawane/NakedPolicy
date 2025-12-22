@@ -26,49 +26,30 @@ export default function NakedPolicyApp() {
                 .then(data => {
                     console.log('Loaded summary:', data);
                     
-                    // Parse the full summary
-                    const summaryText = data.full_summary;
-                    const sections = {
-                        critical: [],
-                        concerning: [],
-                        good: [],
-                        standard: []
+                    // Use the structured sections from the backend
+                    const structuredSections = data.sections || {
+                        critical: { header: '', points: [] },
+                        concerning: { header: '', points: [] },
+                        good: { header: '', points: [] },
+                        standard: { header: '', points: [] }
                     };
 
-                    const lines = summaryText.split('\n').filter(line => line.trim());
-                    
-                    lines.forEach(line => {
-                        if (line.includes('🚫')) {
-                            sections.critical.push(line.replace('🚫', '').trim());
-                        } else if (line.includes('⚠️')) {
-                            sections.concerning.push(line.replace('⚠️', '').trim());
-                        } else if (line.includes('✅')) {
-                            sections.good.push(line.replace('✅', '').trim());
-                        } else if (line.includes('ℹ️')) {
-                            sections.standard.push(line.replace('ℹ️', '').trim());
-                        }
-                    });
-
-                    const allPoints = [
-                        ...sections.critical.map(p => `🚫 ${p}`),
-                        ...sections.concerning.map(p => `⚠️ ${p}`),
-                        ...sections.good.map(p => `✅ ${p}`),
-                        ...sections.standard.map(p => `ℹ️ ${p}`)
-                    ];
-
+                    // Calculate risk based on structured data
                     let risk = 'low';
-                    if (sections.critical.length > 2) {
+                    const criticalCount = structuredSections.critical.points.length;
+                    const concerningCount = structuredSections.concerning.points.length;
+                    
+                    if (criticalCount > 2) {
                         risk = 'high';
-                    } else if (sections.critical.length > 0 || sections.concerning.length > 3) {
+                    } else if (criticalCount > 0 || concerningCount > 3) {
                         risk = 'medium';
                     }
 
                     setSummary({
                         title: `${data.url} - Privacy Analysis`,
-                        fullText: summaryText,
-                        keyPoints: allPoints.length > 0 ? allPoints : ['Summary loaded successfully.'],
+                        fullText: data.full_summary,
+                        structuredSections: structuredSections,
                         risk: risk,
-                        sections: sections,
                         fromExtension: true
                     });
                     setIsProcessing(false);
@@ -107,54 +88,71 @@ export default function NakedPolicyApp() {
 
             const data = await response.json();
             
-            // Parse the summary text into sections
+            // Parse the summary text into structured sections using the same backend logic
             const summaryText = data.summary;
             
-            // Extract sections from the markdown-formatted summary
-            const sections = {
-                critical: [],
-                concerning: [],
-                good: [],
-                standard: []
+            // Create a simple structured sections object from the raw text
+            // This mimics what the backend parse_summary_into_sections function does
+            const structuredSections = {
+                critical: { header: '', points: [] },
+                concerning: { header: '', points: [] },
+                good: { header: '', points: [] },
+                standard: { header: '', points: [] }
             };
-
-            // Simple parsing - split by emoji markers
-            const lines = summaryText.split('\n').filter(line => line.trim());
             
-            lines.forEach(line => {
-                if (line.includes('🚫')) {
-                    sections.critical.push(line.replace('🚫', '').trim());
-                } else if (line.includes('⚠️')) {
-                    sections.concerning.push(line.replace('⚠️', '').trim());
-                } else if (line.includes('✅')) {
-                    sections.good.push(line.replace('✅', '').trim());
-                } else if (line.includes('ℹ️')) {
-                    sections.standard.push(line.replace('ℹ️', '').trim());
+            const lines = summaryText.split('\n');
+            let currentSection = null;
+            
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+                
+                // Check if it's a section header
+                if (trimmedLine.startsWith('##')) {
+                    const cleanLine = trimmedLine.replace(/#/g, '').trim();
+                    
+                    if (cleanLine.includes('🚫') || cleanLine.toUpperCase().includes('CRITICAL')) {
+                        structuredSections.critical.header = cleanLine;
+                        currentSection = 'critical';
+                    } else if (cleanLine.includes('⚠️') || cleanLine.toUpperCase().includes('CONCERNING')) {
+                        structuredSections.concerning.header = cleanLine;
+                        currentSection = 'concerning';
+                    } else if (cleanLine.includes('✅') || cleanLine.toUpperCase().includes('GOOD')) {
+                        structuredSections.good.header = cleanLine;
+                        currentSection = 'good';
+                    } else if (cleanLine.includes('ℹ️') || cleanLine.toUpperCase().includes('STANDARD')) {
+                        structuredSections.standard.header = cleanLine;
+                        currentSection = 'standard';
+                    }
                 }
-            });
+                // Check if it's a bullet point for the current section
+                else if (currentSection && (trimmedLine.startsWith('🚫') || trimmedLine.startsWith('⚠️') || 
+                                           trimmedLine.startsWith('✅') || trimmedLine.startsWith('ℹ️') || 
+                                           trimmedLine.startsWith('-') || trimmedLine.startsWith('*'))) {
+                    // Clean up the line (remove leading emoji/markers)
+                    const cleanPoint = trimmedLine.replace(/^[🚫⚠️✅ℹ️\-\*\s]+/, '').trim();
+                    if (cleanPoint) {
+                        structuredSections[currentSection].points.push(cleanPoint);
+                    }
+                }
+            }
 
-            // Combine all points for display
-            const allPoints = [
-                ...sections.critical.map(p => `🚫 ${p}`),
-                ...sections.concerning.map(p => `⚠️ ${p}`),
-                ...sections.good.map(p => `✅ ${p}`),
-                ...sections.standard.map(p => `ℹ️ ${p}`)
-            ];
-
-            // Determine risk level based on critical and concerning items
+            // Calculate risk based on structured data
             let risk = 'low';
-            if (sections.critical.length > 2) {
+            const criticalCount = structuredSections.critical.points.length;
+            const concerningCount = structuredSections.concerning.points.length;
+            
+            if (criticalCount > 2) {
                 risk = 'high';
-            } else if (sections.critical.length > 0 || sections.concerning.length > 3) {
+            } else if (criticalCount > 0 || concerningCount > 3) {
                 risk = 'medium';
             }
 
             setSummary({
                 title: file.name,
                 fullText: summaryText,
-                keyPoints: allPoints.length > 0 ? allPoints : ['Summary generated successfully. View full text below.'],
-                risk: risk,
-                sections: sections
+                structuredSections: structuredSections,
+                risk: risk
             });
 
         } catch (error) {
@@ -522,8 +520,8 @@ export default function NakedPolicyApp() {
                             </div>
 
                             <div className="space-y-6">
-                                {summary.keyPoints.map((point, index) => {
-                                    // Helper function to parse markdown bold (**text**)
+                                {/* Helper function to parse markdown bold (**text**) */}
+                                {(() => {
                                     const parseBold = (text) => {
                                         const parts = text.split(/(\*\*.*?\*\*)/g);
                                         return parts.map((part, i) => {
@@ -534,65 +532,80 @@ export default function NakedPolicyApp() {
                                         });
                                     };
 
-                                    // Check for markdown headers (##)
-                                    const isHeader = /^#{2,}/.test(point);
-                                    if (isHeader) {
-                                        // Remove ## and parse bold text
-                                        const cleanText = point.replace(/^#{2,}\s*/, '');
-                                        
-                                        // Determine color based on emoji/content
-                                        let headerClass = "bg-gradient-to-r from-slate-700/50 to-slate-800/50 border-l-4 border-slate-500";
-                                        if (cleanText.includes('🚫') || cleanText.includes('CRITICAL')) {
-                                            headerClass = "bg-gradient-to-r from-red-900/30 to-red-800/20 border-l-4 border-red-500";
-                                        } else if (cleanText.includes('⚠️') || cleanText.includes('CONCERNING')) {
-                                            headerClass = "bg-gradient-to-r from-yellow-900/30 to-yellow-800/20 border-l-4 border-yellow-500";
-                                        } else if (cleanText.includes('✅') || cleanText.includes('GOOD')) {
-                                            headerClass = "bg-gradient-to-r from-green-900/30 to-green-800/20 border-l-4 border-green-500";
-                                        } else if (cleanText.includes('ℹ️') || cleanText.includes('STANDARD')) {
-                                            headerClass = "bg-gradient-to-r from-blue-900/30 to-blue-800/20 border-l-4 border-blue-500";
+                                    const structuredSections = summary.structuredSections || {};
+                                    const sectionConfigs = [
+                                        {
+                                            key: 'critical',
+                                            emoji: '🚫',
+                                            borderColor: 'border-red-500',
+                                            headerBg: 'bg-red-900/20',
+                                            pointClass: 'bg-red-950/10 border-l-2 border-red-500/30 hover:bg-red-950/20',
+                                            iconColor: 'text-red-400'
+                                        },
+                                        {
+                                            key: 'concerning',
+                                            emoji: '⚠️',
+                                            borderColor: 'border-yellow-500',
+                                            headerBg: 'bg-yellow-900/20',
+                                            pointClass: 'bg-yellow-950/10 border-l-2 border-yellow-500/30 hover:bg-yellow-950/20',
+                                            iconColor: 'text-yellow-400'
+                                        },
+                                        {
+                                            key: 'good',
+                                            emoji: '✅',
+                                            borderColor: 'border-green-500',
+                                            headerBg: 'bg-green-900/20',
+                                            pointClass: 'bg-green-950/10 border-l-2 border-green-500/30 hover:bg-green-950/20',
+                                            iconColor: 'text-green-400'
+                                        },
+                                        {
+                                            key: 'standard',
+                                            emoji: 'ℹ️',
+                                            borderColor: 'border-blue-500',
+                                            headerBg: 'bg-blue-900/20',
+                                            pointClass: 'bg-blue-950/10 border-l-2 border-blue-500/30 hover:bg-blue-950/20',
+                                            iconColor: 'text-blue-400'
                                         }
-                                        
+                                    ];
+
+                                    return sectionConfigs.map(config => {
+                                        const section = structuredSections[config.key];
+                                        if (!section || (!section.header && section.points.length === 0)) {
+                                            return null;
+                                        }
+
                                         return (
-                                            <div key={index} className={`${headerClass} rounded-xl p-6 mt-10 mb-6 shadow-lg`}>
-                                                <h2 className="text-3xl font-black text-white tracking-wider uppercase" style={{ letterSpacing: '0.05em' }}>
-                                                    {parseBold(cleanText)}
-                                                </h2>
+                                            <div key={config.key} className={`bg-slate-900/50 border ${config.borderColor} rounded-xl overflow-hidden shadow-lg`}>
+                                                {/* Section Header */}
+                                                {section.header && (
+                                                    <div className={`${config.headerBg} px-6 py-4 border-b ${config.borderColor}`}>
+                                                        <h2 className="text-xl font-bold text-white tracking-wide uppercase">
+                                                            {parseBold(section.header)}
+                                                        </h2>
+                                                    </div>
+                                                )}
+
+                                                {/* Bullet Points */}
+                                                {section.points && section.points.length > 0 && (
+                                                    <div className="p-4 space-y-3">
+                                                        {section.points.map((point, idx) => (
+                                                            <div key={idx} className={`${config.pointClass} rounded-lg p-4 transition-all duration-200 hover:shadow-md`}>
+                                                                <div className="flex items-start space-x-3">
+                                                                    <div className={`${config.iconColor} mt-1 flex-shrink-0`}>
+                                                                        <div className="w-2 h-2 rounded-full bg-current"></div>
+                                                                    </div>
+                                                                    <p className="text-sm font-normal text-slate-200 leading-relaxed">
+                                                                        {parseBold(point)}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
-                                    }
-                                    
-                                    // Determine icon and styling based on emoji
-                                    let pointClass = "bg-slate-800/40 border-l-2 border-slate-600";
-                                    let iconColor = "text-blue-400";
-                                    
-                                    if (point.includes('🚫')) {
-                                        pointClass = "bg-red-950/20 border-l-2 border-red-500/50 hover:bg-red-950/30";
-                                        iconColor = "text-red-400";
-                                    } else if (point.includes('⚠️')) {
-                                        pointClass = "bg-yellow-950/20 border-l-2 border-yellow-500/50 hover:bg-yellow-950/30";
-                                        iconColor = "text-yellow-400";
-                                    } else if (point.includes('✅')) {
-                                        pointClass = "bg-green-950/20 border-l-2 border-green-500/50 hover:bg-green-950/30";
-                                        iconColor = "text-green-400";
-                                    } else if (point.includes('ℹ️')) {
-                                        pointClass = "bg-blue-950/20 border-l-2 border-blue-500/50 hover:bg-blue-950/30";
-                                        iconColor = "text-blue-400";
-                                    }
-                                    
-                                    // Render individual points with enhanced styling
-                                    return (
-                                        <div key={index} className={`${pointClass} rounded-lg p-5 transition-all duration-200 hover:shadow-lg hover:scale-[1.01]`}>
-                                            <div className="flex items-start space-x-4">
-                                                <div className={`${iconColor} mt-1.5 flex-shrink-0`}>
-                                                    <div className="w-2.5 h-2.5 rounded-full bg-current shadow-lg"></div>
-                                                </div>
-                                                <p className="text-base font-normal text-slate-200 leading-relaxed" style={{ lineHeight: '1.7' }}>
-                                                    {parseBold(point)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                    });
+                                })()}
                             </div>
                         </div>
 

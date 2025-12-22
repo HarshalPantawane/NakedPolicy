@@ -31,6 +31,22 @@ class Config:
     
     # Request Limits
     MAX_TEXT_SIZE = 1000000  # 1MB
+    
+    # Database Configuration
+    DB_TYPE = os.environ.get("DB_TYPE", "json")  # 'json' or 'dynamodb'
+    
+    # JSON Database (default)
+    JSON_DB_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "summaries_db.json")
+    
+    # DynamoDB Configuration (optional)
+    DYNAMODB_TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME", "naked-policy-summaries")
+    DYNAMODB_REGION = os.environ.get("DYNAMODB_REGION", "us-east-1")
+    AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    
+    # Cache Settings
+    CACHE_ENABLED = os.environ.get("CACHE_ENABLED", "true").lower() == "true"
+    CACHE_EXPIRY_DAYS = int(os.environ.get("CACHE_EXPIRY_DAYS", 30))  # Cache validity period
 
 
 class DevelopmentConfig(Config):

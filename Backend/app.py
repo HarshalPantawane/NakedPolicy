@@ -200,9 +200,27 @@ Provide ONLY the summary, nothing else."""
         else:
             return "⚠️ Unable to generate summary. Please try again later."
 
-# Import policy fetcher and storage
+# Import policy fetcher and database system
 from policy_fetcher_safe import fetch_policy_for_url
-from summary_store import store
+from database import get_database
+from config.config import Config
+
+# Initialize database based on configuration
+if Config.DB_TYPE.lower() == 'dynamodb':
+    print(f"🗄️  Using DynamoDB: {Config.DYNAMODB_TABLE_NAME} ({Config.DYNAMODB_REGION})")
+    db = get_database(
+        'dynamodb',
+        table_name=Config.DYNAMODB_TABLE_NAME,
+        region_name=Config.DYNAMODB_REGION,
+        aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY
+    )
+else:
+    print(f"🗄️  Using JSON Database: {Config.JSON_DB_FILE}")
+    db = get_database('json', storage_file=Config.JSON_DB_FILE)
+
+print(f"💾 Cache enabled: {Config.CACHE_ENABLED}")
+
 
 @app.route('/summarize', methods=['POST'])
 def summarize():
@@ -228,7 +246,11 @@ def summarize():
 def fetch_and_summarize():
     """
     Main endpoint for extension
-    Fetches policy from URL and generates both short and full summaries
+    Checks cache first, then fetches policy from URL and generates summaries if needed
+    
+    Request body can include:
+    - url: The URL to fetch and summarize (required)
+    - force_refresh: If true, bypass cache and fetch fresh data (optional, default: false)
     """
     try:
         data = request.get_json()
@@ -236,7 +258,34 @@ def fetch_and_summarize():
             return jsonify({"error": "No URL provided"}), 400
 
         url = data['url']
-        print(f"\n📥 Fetching policies for: {url}")
+        force_refresh = data.get('force_refresh', False)
+        
+        print(f"\n📥 Request for: {url}")
+        if force_refresh:
+            print(f"🔄 Force refresh requested - bypassing cache")
+        
+        # Check cache first if enabled and not forcing refresh
+        if Config.CACHE_ENABLED and not force_refresh:
+            cached_summary = db.get_summary_by_url(url, expiry_days=Config.CACHE_EXPIRY_DAYS)
+            
+            if cached_summary:
+                print(f"✨ CACHE HIT! Returning cached summary for: {url}")
+                print(f"💰 Tokens saved by using cache!")
+                
+                return jsonify({
+                    "id": cached_summary['id'],
+                    "short_summary": cached_summary['short_summary'],
+                    "url": cached_summary['url'],
+                    "policy_types": cached_summary.get('policy_types', []),
+                    "status": "success",
+                    "cached": True,
+                    "cached_at": cached_summary.get('created_at', 'N/A')
+                })
+            else:
+                print(f"🔍 Cache miss - will fetch and summarize")
+        
+        # Not in cache or force refresh - proceed with fetching and summarizing
+        print(f"🌐 Fetching policies for: {url}")
         
         # Fetch policies
         policy_data = fetch_policy_for_url(url)
@@ -260,8 +309,8 @@ def fetch_and_summarize():
         short_summary = generate_short_summary(combined_text)
         full_summary = get_working_response(combined_text)
         
-        # Store summaries
-        summary_id = store.save_summary(
+        # Store summaries (will update if URL already exists)
+        summary_id = db.save_summary(
             url=policy_data['url'],
             short_summary=short_summary,
             full_summary=full_summary,
@@ -275,7 +324,8 @@ def fetch_and_summarize():
             "short_summary": short_summary,
             "url": policy_data['url'],
             "policy_types": policy_data['found_types'],
-            "status": "success"
+            "status": "success",
+            "cached": False
         })
 
     except Exception as e:
@@ -287,13 +337,20 @@ def fetch_and_summarize():
 @app.route('/summary/<summary_id>', methods=['GET'])
 def get_summary(summary_id):
     """
-    Retrieve full summary for frontend
+    Retrieve full summary for frontend with structured sections
     """
     try:
-        summary = store.get_summary(summary_id)
+        summary = db.get_summary_by_id(summary_id)
         
         if not summary:
             return jsonify({"error": "Summary not found"}), 404
+        
+        # Parse the full_summary into structured sections
+        full_text = summary.get('full_summary', '')
+        sections = parse_summary_into_sections(full_text)
+        
+        # Add structured sections to response
+        summary['sections'] = sections
         
         return jsonify(summary)
 
@@ -301,12 +358,68 @@ def get_summary(summary_id):
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+def parse_summary_into_sections(summary_text):
+    """
+    Parse summary markdown into structured sections with headers and bullet points
+    
+    Returns:
+    {
+        'critical': {'header': '...', 'points': [...]},
+        'concerning': {'header': '...', 'points': [...]},
+        'good': {'header': '...', 'points': [...]},
+        'standard': {'header': '...', 'points': [...]}
+    }
+    """
+    sections = {
+        'critical': {'header': '', 'points': []},
+        'concerning': {'header': '', 'points': []},
+        'good': {'header': '', 'points': []},
+        'standard': {'header': '', 'points': []}
+    }
+    
+    lines = summary_text.split('\n')
+    current_section = None
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Check if it's a section header
+        if line.startswith('##'):
+            clean_line = line.replace('#', '').strip()
+            
+            if '🚫' in clean_line or 'CRITICAL' in clean_line.upper():
+                sections['critical']['header'] = clean_line
+                current_section = 'critical'
+            elif '⚠️' in clean_line or 'CONCERNING' in clean_line.upper():
+                sections['concerning']['header'] = clean_line
+                current_section = 'concerning'
+            elif '✅' in clean_line or 'GOOD' in clean_line.upper():
+                sections['good']['header'] = clean_line
+                current_section = 'good'
+            elif 'ℹ️' in clean_line or 'STANDARD' in clean_line.upper():
+                sections['standard']['header'] = clean_line
+                current_section = 'standard'
+                
+        # Check if it's a bullet point for the current section
+        elif current_section and (line.startswith('🚫') or line.startswith('⚠️') or 
+                                 line.startswith('✅') or line.startswith('ℹ️') or 
+                                 line.startswith('-') or line.startswith('*')):
+            # Clean up the line (remove leading emoji/markers)
+            clean_point = line.lstrip('🚫⚠️✅ℹ️-* ').strip()
+            if clean_point:
+                sections[current_section]['points'].append(clean_point)
+    
+    return sections
+
 @app.route('/recent', methods=['GET'])
 def get_recent():
     """Get recent summaries"""
     try:
         limit = request.args.get('limit', 10, type=int)
-        recent = store.get_recent(limit=limit)
+        recent = db.get_recent(limit=limit)
         return jsonify({"summaries": recent})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -317,8 +430,66 @@ def health():
     return jsonify({
         "status": "healthy",
         "service": "NakedPolicy API",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "database": Config.DB_TYPE,
+        "cache_enabled": Config.CACHE_ENABLED
     })
+
+@app.route('/cache/stats', methods=['GET'])
+def cache_stats():
+    """Get cache statistics"""
+    try:
+        if hasattr(db, 'get_cache_stats'):
+            stats = db.get_cache_stats()
+            stats['cache_enabled'] = Config.CACHE_ENABLED
+            stats['cache_expiry_days'] = Config.CACHE_EXPIRY_DAYS
+            stats['db_type'] = Config.DB_TYPE
+            return jsonify(stats)
+        else:
+            return jsonify({"error": "Cache stats not available for this database type"}), 501
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/cache/clear', methods=['POST'])
+def cache_clear():
+    """
+    Clear cached summary for a specific URL
+    
+    Request body:
+    {
+        "url": "example.com"  // URL to clear from cache
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'url' not in data:
+            return jsonify({"error": "No URL provided"}), 400
+        
+        url = data['url']
+        print(f"🗑️  Clearing cache for: {url}")
+        
+        # Delete the cached summary
+        success = db.delete_summary_by_url(url)
+        
+        if success:
+            print(f"✅ Cache cleared for: {url}")
+            return jsonify({
+                "status": "success",
+                "message": f"Cache cleared for {url}",
+                "url": url
+            })
+        else:
+            print(f"❌ No cached entry found for: {url}")
+            return jsonify({
+                "status": "not_found",
+                "message": f"No cached entry found for {url}",
+                "url": url
+            }), 404
+    
+    except Exception as e:
+        print(f"Error clearing cache: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/demo-summary', methods=['POST'])
 def demo_summary():
@@ -374,8 +545,8 @@ This privacy policy shows several concerning practices, particularly around data
 **Recommendation**: Use with caution. Consider using privacy-focused alternatives if available, or limit the personal information you provide.
 """
 
-        # Save to store
-        summary_id = store.save_summary(
+        # Save to database
+        summary_id = db.save_summary(
             url=url,
             short_summary=short_summary,
             full_summary=full_summary,
@@ -406,4 +577,6 @@ if __name__ == '__main__':
     print("  POST /summarize           - Analyze uploaded text")
     print("  GET  /recent              - Get recent summaries")
     print("  GET  /health              - Health check")
+    print("  GET  /cache/stats         - Cache statistics")
+    print("  POST /cache/clear         - Clear cache for specific URL")
     app.run(debug=True, port=5000)

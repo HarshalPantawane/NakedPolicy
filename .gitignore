@@ -9,6 +9,7 @@ lerna-debug.log*
 
 # Dependencies
 node_modules
+dist
 dist-ssr
 *.local
 
@@ -30,6 +31,7 @@ __pycache__/
 .env.*.local
 
 # Backend - Database and Generated Content
+Backend/summaries_db.json
 Backend/policies/
 Backend/summaries/
 Backend/*.db
@@ -55,3 +57,21 @@ vite.config.d.ts
 
 # OS
 Thumbs.db
+
+# Old structure (deleted files - root level only)
+/frontend/
+/src/
+/public/
+/app.py
+/policy_fetcher_safe.py
+/requirements.txt
+/save-policies.py
+/test_summarize.py
+/index.html
+/package.json
+/package-lock.json
+/tsconfig.json
+/vite.config.ts
+/tailwind.config.js
+/QUICKSTART.md
+/SETUP.md
