@@ -376,5 +376,10 @@ See [LICENSE](LICENSE) for more information.
 
 **Made with ❤️ and AI by the NakedPolicy Team**
 
+Karan Tomar (Team Leader)
+Swinal Waghmare (Member)
+Harshal Pantawane (Member)
+Anirudh Trivedi (Member)
+
 *Bringing transparency to the digital world, one policy at a time.*
 
